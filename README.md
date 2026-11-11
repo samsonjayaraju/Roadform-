@@ -2,7 +2,7 @@
 
 Roadform detects potholes in road photographs and recorded dashcam footage. It runs on your computer and opens in a browser, where you can review each detection, adjust the confidence threshold, and export annotated media.
 
-![Roadform showing two potholes outlined in orange, the confidence slider, and the inspection results](docs/inspection-workspace.jpg)
+![Roadform showing two potholes outlined in red, the confidence slider, and the inspection results](docs/inspection-workspace.jpg)
 
 ## Quick start
 
@@ -33,7 +33,7 @@ Open [Roadform on localhost](http://127.0.0.1:8080). The server listens on the l
 
 ## Try an inspection
 
-The sample opens at 40% confidence with two potholes outlined. Raise the threshold to 85% and only the higher-confidence detection remains. Select **Original** to compare the markings with the road surface.
+Each red box highlights a predicted pothole. Its percentage is the model’s confidence for that detection in the image or video frame. The sample opens at a 40% threshold with two potholes outlined. Raise the threshold to 85% and only the higher-confidence detection remains. Select **Original** to compare the markings with the road surface.
 
 | Input | How to inspect it | Export |
 | --- | --- | --- |

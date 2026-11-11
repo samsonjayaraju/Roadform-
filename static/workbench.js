@@ -43,23 +43,34 @@ function paint(target, overlay) {
   const ctx = target.getContext('2d');
   ctx.drawImage(sourceImage, 0, 0);
   if (!overlay) return;
-  const unit = Math.max(0.7, Math.max(width, height) / 800);
-  ctx.lineWidth = 2 * unit;
-  ctx.font = 'bold ' + 12 * unit + 'px monospace';
-  visibleBoxes().forEach(([left, top, right, bottom, score], index) => {
-    ctx.fillStyle = 'rgba(255,106,46,.09)';
+  const fontSize = Math.max(14, width / 58, height / 32);
+  const padding = Math.ceil(fontSize / 5);
+  ctx.lineWidth = Math.max(2, fontSize / 8);
+  ctx.font = 'bold ' + fontSize + 'px system-ui, sans-serif';
+  const hits = visibleBoxes();
+  for (const [left, top, right, bottom] of hits) {
+    ctx.fillStyle = 'rgba(230,31,50,.14)';
     ctx.fillRect(left, top, right - left, bottom - top);
-    ctx.strokeStyle = '#ff702d';
+    ctx.strokeStyle = '#e61f32';
     ctx.strokeRect(left, top, right - left, bottom - top);
-    const label = '#' + String(index + 1).padStart(2, '0') + '  ' + Math.round(score * 100) + '%';
-    const labelWidth = ctx.measureText(label).width + unit * 11;
-    const labelX = Math.max(0, Math.min(left - unit, width - labelWidth));
-    const labelY = Math.max(0, top - 20 * unit);
-    ctx.fillStyle = '#ff702d';
-    ctx.fillRect(labelX, labelY, labelWidth, 20 * unit);
-    ctx.fillStyle = '#161b15';
-    ctx.fillText(label, labelX + 5 * unit, labelY + 14 * unit);
-  });
+  }
+  const occupied = [];
+  for (const [left, top, , bottom, score] of hits) {
+    const label = Math.round(score * 100) + '%';
+    const w = ctx.measureText(label).width + 2 * padding;
+    const h = fontSize + 2 * padding;
+    const x = Math.max(0, Math.min(left, width - w));
+    const candidates = [top - h, bottom, top].map(y => Math.max(0, Math.min(y, height - h)));
+    const y = candidates.find(y => occupied.every(rect =>
+      x + w <= rect.left || x >= rect.right || y + h <= rect.top || y >= rect.bottom
+    )) ?? candidates[2];
+    occupied.push({left:x, top:y, right:x + w, bottom:y + h});
+    ctx.fillStyle = '#9c1125';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + padding, y + h / 2);
+  }
 }
 
 function note(text) {
@@ -151,6 +162,7 @@ async function openMedia(selected) {
   file = selected;
   sourceUrl = file ? URL.createObjectURL(file) : '/static/sample-road.jpg';
   isClip = Boolean(file && /\.(mp4|mov)$/i.test(file.name));
+  byId('stage').classList.remove('portrait');
   ready = false;
   showOverlay = !isClip;
   sourceImage = null;
@@ -174,6 +186,7 @@ async function openMedia(selected) {
     const response = file ? fetch('/api/inspect', {method:'POST', body:payload()}) : fetch('/api/sample');
     const [result] = await Promise.all([response.then(checked).then(r => r.json()), img.decode()]);
     sourceImage = img;
+    byId('stage').classList.toggle('portrait', img.naturalHeight > img.naturalWidth);
     boxes = result.boxes;
     byId('dimensions').textContent = result.width + ' × ' + result.height + ' px';
     ready = true;
@@ -205,6 +218,9 @@ async function analyzeClip() {
   }
 }
 
+video.addEventListener('loadedmetadata', () => {
+  if (isClip) byId('stage').classList.toggle('portrait', video.videoHeight > video.videoWidth);
+});
 byId('uploadBtn').onclick = () => byId('upload').click();
 byId('upload').onchange = event => {
   const selected = event.target.files[0];

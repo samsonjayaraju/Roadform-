@@ -64,14 +64,41 @@ def sample():
 
 
 def draw_frame(frame, boxes):
+    # FFmpeg supplies RGB frames. Only the inference copy is converted to BGR.
     height, width = frame.shape[:2]
-    thickness = max(2, round(min(width, height) / 330))
+    red = (230, 31, 50)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text_height = max(12, round(max(width / 72, height / 39)))
+    weight = max(1, round(text_height / 10))
+    scale = cv2.getFontScaleFromHeight(font, text_height, weight)
+    stroke = max(2, round(text_height / 8))
+    pad = max(3, round(text_height / 5))
+    labels = []
     for x1, y1, x2, y2, score, _ in boxes:
-        corner = (int(x1), int(y1))
-        cv2.rectangle(frame, corner, (int(x2), int(y2)), (255, 103, 39), thickness)
-        cv2.putText(frame, f"Pothole {score:.0%}", (corner[0], max(18, corner[1] - 6)),
-                    cv2.FONT_HERSHEY_SIMPLEX, thickness / 4, (255, 103, 39),
-                    max(1, thickness // 2), cv2.LINE_AA)
+        left, top = max(0, int(x1)), max(0, int(y1))
+        right, bottom = min(width, math.ceil(x2)), min(height, math.ceil(y2))
+        if right <= left or bottom <= top:
+            continue
+        area = frame[top:bottom, left:right]
+        cv2.addWeighted(area, 0.86, np.full_like(area, red), 0.14, 0, dst=area)
+        cv2.rectangle(frame, (left, top), (right - 1, bottom - 1), red, stroke)
+        labels.append((left, top, bottom, f"{score:.0%}"))
+
+    occupied = []
+    for left, top, bottom, label in labels:
+        (tw, th), baseline = cv2.getTextSize(label, font, scale, weight)
+        w, h = tw + 2 * pad, th + baseline + 2 * pad
+        x = max(0, min(left, width - w))
+        # Prefer the top edge, then try below or inside a crowded box.
+        for candidate in (top - h, bottom, top):
+            y = max(0, min(candidate, height - h))
+            if all(x + w <= x0 or x >= x1 or y + h <= y0 or y >= y1
+                   for x0, y0, x1, y1 in occupied):
+                break
+        occupied.append((x, y, x + w, y + h))
+        cv2.rectangle(frame, (x, y), (x + w - 1, y + h - 1), (156, 17, 37), cv2.FILLED)
+        cv2.putText(frame, label, (x + pad, y + pad + th), font, scale,
+                    (255, 255, 255), weight, cv2.LINE_AA)
 
 
 def video_result(upload, confidence):
